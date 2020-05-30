@@ -1,4 +1,5 @@
 # SM Houdini Redshift3D ACES Workflow Convenience Tools
+NOTE: These tools are what I use for my personal projects and NOT production tested! 
 
 Several tools are included in this folder. 
 - COPS: sm_rgb_to_acescg: this hda converts the input linear rgb image to acescg. It's basically a wrapper around a cop2filter vop
