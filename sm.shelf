@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<shelfDocument>
+  <!-- This file contains definitions of shelves, toolbars, and tools.
+ It should not be hand-edited when it is being used by the application.
+ Note, that two definitions of the same element are not allowed in
+ a single file. -->
+
+  <toolshelf name="sm_tools" label="SM Tools">
+    <memberTool name="sm_shelf_convert_texture_to_aces"/>
+  </toolshelf>
+
+  <tool name="sm_shelf_convert_texture_to_aces" label="SM Convert Texture To Aces" icon="PLASMA_App">
+    <helpText><![CDATA[This tool looks at the environment map/texture map path in a RS Dome Light or RS Texture VOP, and runs the nodes required to convert that texture into ACES color space.
+
+Note that SM tools otl need to be installed. ]]></helpText>
+    <toolMenuContext name="network">
+      <contextNetType>OBJ</contextNetType>
+      <contextNetType>VOP</contextNetType>
+    </toolMenuContext>
+    <toolSubmenu>sm</toolSubmenu>
+    <script scriptType="python"><![CDATA[# We will only work on two node types:
+# rslightdome::2.0
+# redshift::TextureSampler
+
+import re
+
+def sm_convert_texture_to_aces():
+ # Select all nodes, if they are not the dome light or texture vop exit.
+ validNodes = ["rslightdome::2.0", "redshift::TextureSampler"]
+ selectedNodes = hou.selectedNodes()
+ 
+ 
+ 
+ 
+ 
+ if len(selectedNodes) > 0:
+ 
+  for o in selectedNodes:
+   checkError = 0
+   for i in validNodes:
+    if o.type().name() != i:
+     checkError += 1
+  
+   if checkError >1:
+    print checkError
+    hou.ui.setStatusMessage("SM Convert: this tool only works on RS Dome Lights and RS Texture VOPs")
+    return
+ else:
+  hou.ui.setStatusMessage("SM Convert: No nodes selected")
+  return
+ 
+ hou.ui.setStatusMessage("SM Convert: Selected nodes are valid.")
+ 
+ # Check if map path empty
+ # Check if map exists (not on disk, just check path has _ACES.exr extension)
+ # If neither above condition, then generate sm texture tool, then run aces export 
+ 
+ summaryText = "SUMMARY:"
+ 
+ for o in selectedNodes:
+  mapParm = ""
+  mapString = ""
+  runError = 0
+  
+  if o.type().name() == validNodes[0]:
+   mapParm = o.parm("env_map")
+  else:
+   mapParm = o.parm("tex0")
+  
+  mapString = mapParm.evalAsString()
+  
+  # check if parameter is empty
+  
+  if len(mapString)==0:
+   runError = 1
+  
+  if runError ==0: #Check if path has ACES.exr in filename. Only run if parameter is not empty.
+   match = re.search("_ACES\.exr", mapString)
+   
+   if match != None:
+    runError = 2
+  
+  # Looks like this texture is good for conversion
+  # Check if cops conversion node available.
+  if runError ==0: 
+  
+      conversionNode = hou.node("/img/sm_cop2node/sm_export_aces_texture9876/")
+      
+      if conversionNode == None:
+       imgNet = hou.node("/img/sm_cop2node/")
+       if imgNet == None:
+        imgContext = hou.node("/img")
+        imgContext.createNode("img","sm_cop2node")
+        imgNet = hou.node("/img/sm_cop2node/")
+        imgNet.createNode("sm_export_aces_texture", "sm_export_aces_texture9876")
+      
+      conversionNode = hou.node("/img/sm_cop2node/sm_export_aces_texture9876/")
+      
+      # run conversion
+      conversionNode.parm("filename").set(mapString)
+      conversionNode.parm("populateExportPath").pressButton()
+      conversionNode.parm("execute").pressButton()
+      
+      # copy string to light/texture vop
+      
+      acesTexture = conversionNode.parm("copoutput").evalAsString()
+      
+      mapParm.set(acesTexture)
+      
+  # Update summary for this run here.
+  if runError == 0:
+   summaryText += "\n " + o.name() + ": ACES Texture created!"
+  if runError == 1:
+   summaryText += "\n " + o.name() + ": map parameter empty, NO CHANGES"
+  if runError == 2:
+   summaryText += "\n " + o.name() + ": seems to already have ACES texture, NO CHANGES"
+ 
+ # Now we are done, do summary of things we did
+ hou.ui.displayMessage(summaryText)
+    
+sm_convert_texture_to_aces()]]></script>
+  </tool>
+</shelfDocument>
